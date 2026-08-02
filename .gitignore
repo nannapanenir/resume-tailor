@@ -1,0 +1,4 @@
+node_modules/
+resume-tailor-data/
+*.log
+.claude/settings.local.json

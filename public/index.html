@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resume Tailor</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ============ WELCOME / FIRST-LAUNCH SCREEN ============ -->
+<div id="welcome-screen" class="welcome-screen" hidden>
+  <div class="welcome-card">
+    <div class="logo-badge logo-badge--lg" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
+    </div>
+    <h1>Welcome to Resume Tailor</h1>
+    <p>Build your verified career profile to get started.</p>
+
+    <div class="welcome-actions">
+      <button class="welcome-btn welcome-btn--primary" id="welcome-add-resume" type="button">
+        <span class="welcome-btn-icon" aria-hidden="true">📄</span>
+        <span>
+          <strong>Add Master Resume</strong>
+          <small>Upload a DOCX or PDF resume to extract your experience</small>
+        </span>
+      </button>
+      <button class="welcome-btn" id="welcome-add-linkedin" type="button">
+        <span class="welcome-btn-icon" aria-hidden="true">💼</span>
+        <span>
+          <strong>Add LinkedIn PDF</strong>
+          <small>Optional — supplements your master resume</small>
+        </span>
+      </button>
+      <button class="welcome-btn" id="welcome-paste-career" type="button">
+        <span class="welcome-btn-icon" aria-hidden="true">✍️</span>
+        <span>
+          <strong>Paste Career Information</strong>
+          <small>Type or paste your background as plain text</small>
+        </span>
+      </button>
+    </div>
+
+    <div id="welcome-status" class="welcome-status" hidden>
+      <span id="welcome-status-spinner" class="spinner" aria-hidden="true"></span>
+      <span id="welcome-status-text"></span>
+    </div>
+
+    <p class="welcome-privacy">🔒 All data stays on your device.</p>
+    <p class="app-credit">Designed &amp; developed by <a href="https://github.com/nannapanenir" target="_blank" rel="noopener noreferrer">Ramgopal Nannapaneni</a></p>
+  </div>
+</div>
+
+<!-- ============ MAIN APP SHELL ============ -->
+<div id="app-shell" class="app-shell" hidden>
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-title">Resume Tailor</div>
+        <div class="sidebar-status"><span class="status-dot"></span>Running locally &bull; Private</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <button class="nav-item is-active" data-view="new-tailoring" type="button">
+        <span class="nav-icon" aria-hidden="true">✨</span> New Tailoring
+      </button>
+      <button class="nav-item" data-view="career-profile" type="button">
+        <span class="nav-icon" aria-hidden="true">👤</span> Career Profile
+      </button>
+      <button class="nav-item" data-view="previous-resumes" type="button">
+        <span class="nav-icon" aria-hidden="true">📋</span> Previous Resumes
+      </button>
+      <button class="nav-item" data-view="settings" type="button">
+        <span class="nav-icon" aria-hidden="true">⚙️</span> Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="privacy-icon" aria-hidden="true">🛡️</span>
+      <span>All data stays on<br />your device</span>
+    </div>
+    <div class="app-credit">Designed &amp; developed by <a href="https://github.com/nannapanenir" target="_blank" rel="noopener noreferrer">Ramgopal Nannapaneni</a></div>
+  </aside>
+
+  <!-- CENTRAL WORKSPACE -->
+  <main class="workspace" id="view-new-tailoring">
+    <div class="chat-scroll" id="chat-log"></div>
+
+    <!-- Tailoring workflow card (shown once there is at least one proposed change) -->
+    <section class="workflow-card" id="workflow-card" hidden>
+      <div class="tabs" role="tablist" aria-label="Tailoring views">
+        <button class="tab is-active" role="tab" aria-selected="true" data-tab="changes" type="button">Changes</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="keywords" type="button">Keywords</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="preview" type="button">Resume Preview</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="match" type="button">Match Analysis</button>
+      </div>
+
+      <div class="tab-panel" id="panel-changes" role="tabpanel"></div>
+      <div class="tab-panel" id="panel-keywords" role="tabpanel" hidden></div>
+      <div class="tab-panel" id="panel-preview" role="tabpanel" hidden></div>
+      <div class="tab-panel" id="panel-match" role="tabpanel" hidden></div>
+    </section>
+
+    <!-- Composer -->
+    <form class="composer" id="composer-form" autocomplete="off">
+      <div class="composer-plus-wrap">
+        <button class="composer-plus" id="composer-plus-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Add content">+</button>
+        <div class="plus-menu" id="plus-menu" role="menu" hidden>
+          <button role="menuitem" type="button" data-action="upload-master-resume">📄 Upload Master Resume</button>
+          <button role="menuitem" type="button" data-action="upload-linkedin-pdf">💼 Upload LinkedIn PDF</button>
+          <button role="menuitem" type="button" data-action="upload-job-description">📥 Upload Job Description</button>
+          <button role="menuitem" type="button" data-action="paste-job-description">📋 Paste Job Description</button>
+          <div class="plus-menu-divider" role="separator"></div>
+          <button role="menuitem" type="button" data-action="add-career-info">➕ Add Career Information</button>
+          <button role="menuitem" type="button" data-action="add-project">🗂️ Add Project</button>
+          <button role="menuitem" type="button" data-action="add-certification">🎓 Add Certification</button>
+        </div>
+      </div>
+      <input type="text" id="composer-input" placeholder="Ask something or paste a job description..." aria-label="Message" />
+      <button class="composer-send" id="composer-send-btn" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg>
+      </button>
+    </form>
+    <input type="file" id="file-input" hidden />
+  </main>
+
+  <!-- RIGHT JOB-MATCH PANEL -->
+  <aside class="job-match-panel" id="job-match-panel">
+    <!-- populated by jobMatchPanel.js -->
+  </aside>
+
+  <!-- Other views (Career Profile / Previous Resumes / Settings) -->
+  <main class="workspace" id="view-career-profile" hidden></main>
+  <main class="workspace" id="view-previous-resumes" hidden></main>
+  <main class="workspace" id="view-settings" hidden></main>
+</div>
+
+<!-- Generic modal used for paste-JD / paste-career / add-project / add-certification / edit-change -->
+<div class="modal-overlay" id="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" id="modal-box">
+    <div class="modal-header">
+      <h2 id="modal-title">Title</h2>
+      <button class="modal-close" id="modal-close-btn" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/state.js"></script>
+<script src="js/mockData.js"></script>
+<script src="js/aiClient.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/modal.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/uploadMenu.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/tabs.js"></script>
+<script src="js/changeReview.js"></script>
+<script src="js/keywordsTab.js"></script>
+<script src="js/previewTab.js"></script>
+<script src="js/matchAnalysisTab.js"></script>
+<script src="js/jobMatchPanel.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

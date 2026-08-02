@@ -1,0 +1,24 @@
+{
+  "name": "resume-tailor",
+  "version": "0.1.0",
+  "description": "Local-first, browser-based resume tailoring app.",
+  "private": true,
+  "license": "MIT",
+  "author": {
+    "name": "Ramgopal Nannapaneni",
+    "url": "https://github.com/nannapanenir"
+  },
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.19.1"
+  }
+}
