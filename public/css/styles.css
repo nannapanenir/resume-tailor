@@ -488,6 +488,7 @@ h1, h2, h3 { margin: 0; }
 /* ================= Career Profile / Settings views ================= */
 
 .profile-scroll { overflow-y: auto; height: 100%; max-width: 760px; }
+.settings-back-btn { margin-bottom: 16px; }
 .profile-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 16px;
