@@ -335,9 +335,10 @@ const SettingsView = (() => {
   }
 
   async function render() {
-    const { tailoringMode } = AppState.get();
+    const { tailoringMode, hasProfile } = AppState.get();
     container.innerHTML = `
       <div class="profile-scroll">
+        ${hasProfile ? '' : '<button class="btn btn--ghost btn--sm settings-back-btn" id="settings-back-btn" type="button">← Back to resume setup</button>'}
         <section class="profile-card">
           <h3>Tailoring Mode</h3>
           <p class="muted">Applies to the next job description you paste or upload. All modes remain truthful — only verified facts are ever used.</p>
@@ -354,6 +355,9 @@ const SettingsView = (() => {
         </section>
       </div>
     `;
+    const backButton = container.querySelector('#settings-back-btn');
+    if (backButton) backButton.addEventListener('click', App.showWelcome);
+
     container.querySelectorAll('input[name="mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         AppState.set({ tailoringMode: input.value });
@@ -409,7 +413,7 @@ const SettingsView = (() => {
 const WelcomeStatus = (() => {
   const el = document.getElementById('welcome-status');
   const textEl = document.getElementById('welcome-status-text');
-  const buttonIds = ['welcome-add-resume', 'welcome-add-linkedin', 'welcome-paste-career'];
+  const buttonIds = ['welcome-open-settings', 'welcome-add-resume', 'welcome-add-linkedin', 'welcome-paste-career'];
 
   function setButtonsDisabled(disabled) {
     buttonIds.forEach((id) => { document.getElementById(id).disabled = disabled; });
@@ -449,8 +453,16 @@ const App = (() => {
   }
 
   function showWelcome() {
+    AppState.set({ activeView: 'new-tailoring' });
+    Sidebar.render('new-tailoring');
     document.getElementById('welcome-screen').hidden = false;
     document.getElementById('app-shell').hidden = true;
+  }
+
+  function showSettings() {
+    showWorkspace();
+    AppState.set({ activeView: 'settings' });
+    Sidebar.render('settings');
   }
 
   function init() {
@@ -459,6 +471,7 @@ const App = (() => {
     ChatController.initComposer();
     Workflow.init();
 
+    document.getElementById('welcome-open-settings').addEventListener('click', showSettings);
     document.getElementById('welcome-add-resume').addEventListener('click', () => UploadMenu.trigger('upload-master-resume'));
     document.getElementById('welcome-add-linkedin').addEventListener('click', () => UploadMenu.trigger('upload-linkedin-pdf'));
     document.getElementById('welcome-paste-career').addEventListener('click', () => UploadMenu.trigger('add-career-info'));
