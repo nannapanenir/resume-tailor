@@ -11,13 +11,15 @@ function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+const DEFAULT_SETTINGS = { provider: 'openrouter', apiKey: null, model: null, baseUrl: null };
+
 function readSettings() {
   ensureDataDir();
-  if (!fs.existsSync(SETTINGS_PATH)) return { apiKey: null, model: null };
+  if (!fs.existsSync(SETTINGS_PATH)) return { ...DEFAULT_SETTINGS };
   try {
-    return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) };
   } catch {
-    return { apiKey: null, model: null };
+    return { ...DEFAULT_SETTINGS };
   }
 }
 

@@ -54,36 +54,39 @@ const UploadMenu = (() => {
   async function handleMasterResumeFile(file) {
     const aiStatus = await AIClient.getStatus();
     if (!aiStatus.configured) {
-      Toast.show('Add an OpenRouter API key in Settings before uploading a resume.', 'error');
-      ChatController.addAssistant(
-        `I received "${file.name}", but I need an OpenRouter API key configured in Settings before I can extract your real resume content. Open "Settings" in the sidebar to add one, then upload again.`
+      GlobalStatus.showError(
+        `I need an OpenRouter API key configured before I can extract "${file.name}".`,
+        { label: 'Open Settings →', onClick: () => App.showSettings() }
       );
       return;
     }
-    WelcomeStatus.show(`Reading "${file.name}"…`);
+
+    GlobalStatus.show(`Reading "${file.name}"…`);
     try {
       const fileBase64 = await fileToBase64(file);
-      WelcomeStatus.show(`Extracting text and structuring your career profile with OpenRouter — this can take up to a minute…`);
-      ChatController.addAssistant(`Extracting text from "${file.name}" and structuring it into your career profile using OpenRouter…`);
+      const workingMessage = `Extracting text from "${file.name}" and structuring it into your career profile using OpenRouter — free-tier models can be slow, so this may retry automatically and take a couple of minutes…`;
+      GlobalStatus.show(workingMessage);
+      ChatController.addAssistant(workingMessage);
       const profile = await AIClient.parseResume(file.name, fileBase64);
       AppState.set({ hasProfile: true, careerProfile: profile });
+      GlobalStatus.hide();
       Toast.show(`${file.name} parsed successfully.`, 'success');
       ChatController.addAssistant(
         `I extracted your career profile from "${file.name}". Everything is marked "Extracted" — open "Career Profile" in the sidebar to review it for accuracy, then paste a job description below to tailor it.`
       );
-      WelcomeStatus.hide();
       App.showWorkspace();
+      if (AppState.get().activeView === 'career-profile') CareerProfileView.render();
     } catch (e) {
       const message = `Couldn't parse "${file.name}": ${e.message || 'unknown error'}. Check the file and try again, or use "Add Career Information" to enter details manually.`;
-      WelcomeStatus.showError(message);
+      GlobalStatus.showError(message);
       ChatController.addAssistant(message);
     }
   }
 
   function handleLinkedInFile(file) {
-    WelcomeStatus.show(`Reading "${file.name}"…`);
+    GlobalStatus.show(`Reading "${file.name}"…`);
     setTimeout(() => {
-      WelcomeStatus.hide();
+      GlobalStatus.hide();
       Toast.show(`${file.name} received as a supplement.`, 'success');
       ChatController.addAssistant(
         `Got your LinkedIn export "${file.name}". LinkedIn PDF parsing isn't implemented yet, so it won't change your verified profile. Upload your master resume, or use "Add Career Information" to add details manually.`

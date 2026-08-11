@@ -97,25 +97,60 @@ function readJsonBody(req, maxBytes = 2 * 1024 * 1024) {
   });
 }
 
+function isConfigured(settings) {
+  if (!settings.model) return false;
+  return settings.provider === 'local' ? Boolean(settings.baseUrl) : Boolean(settings.apiKey);
+}
+
+function settingsStatus(settings) {
+  return {
+    configured: isConfigured(settings),
+    provider: settings.provider || 'openrouter',
+    model: settings.model || null,
+    baseUrl: settings.baseUrl || null,
+  };
+}
+
 async function handleApi(req, res, urlPath) {
   // GET /api/settings -> never returns the raw key, only whether one is set.
   if (urlPath === '/api/settings' && req.method === 'GET') {
-    const settings = readSettings();
-    sendJson(res, 200, { configured: Boolean(settings.apiKey), model: settings.model || null });
+    sendJson(res, 200, settingsStatus(readSettings()));
     return true;
   }
 
   if (urlPath === '/api/settings' && req.method === 'POST') {
     try {
       const body = await readJsonBody(req);
-      const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+      const provider = body.provider === 'local' ? 'local' : 'openrouter';
       const model = typeof body.model === 'string' ? body.model.trim() : '';
-      if (!apiKey || !model) {
-        sendJson(res, 400, { error: 'Both an API key and a model name are required.' });
+      const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim() : '';
+      const providedKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+      const existing = readSettings();
+
+      if (!model) {
+        sendJson(res, 400, { error: 'A model name is required.' });
         return true;
       }
-      writeSettings({ apiKey, model });
-      sendJson(res, 200, { configured: true, model });
+
+      if (provider === 'local') {
+        if (!baseUrl) {
+          sendJson(res, 400, { error: 'A local server URL is required (e.g. http://localhost:11434/v1).' });
+          return true;
+        }
+        // Local servers generally don't need a key; keep whatever was
+        // typed (some do use one), but don't require it.
+        writeSettings({ provider, model, baseUrl, apiKey: providedKey || null });
+      } else {
+        // A blank key means "keep the existing one" (e.g. only changing the
+        // model) — only required outright when nothing is stored yet.
+        const apiKey = providedKey || (existing.provider === 'openrouter' ? existing.apiKey : '') || '';
+        if (!apiKey) {
+          sendJson(res, 400, { error: 'An API key is required.' });
+          return true;
+        }
+        writeSettings({ provider, model, apiKey, baseUrl: null });
+      }
+      sendJson(res, 200, settingsStatus(readSettings()));
     } catch (e) {
       sendJson(res, 400, { error: e.message });
     }
@@ -123,16 +158,17 @@ async function handleApi(req, res, urlPath) {
   }
 
   if (urlPath === '/api/settings' && req.method === 'DELETE') {
-    writeSettings({ apiKey: null, model: null });
-    sendJson(res, 200, { configured: false, model: null });
+    writeSettings({ provider: 'openrouter', apiKey: null, model: null, baseUrl: null });
+    sendJson(res, 200, settingsStatus(readSettings()));
     return true;
   }
 
   if (urlPath === '/api/parse-resume' && req.method === 'POST') {
+    const startedAt = Date.now();
     try {
       const settings = readSettings();
-      if (!settings.apiKey) {
-        sendJson(res, 400, { error: 'AI provider is not configured yet. Add an OpenRouter API key in Settings.' });
+      if (!isConfigured(settings)) {
+        sendJson(res, 400, { error: 'AI provider is not configured yet. Set one up in Settings.' });
         return true;
       }
       // Base64 inflates size by ~33%, so allow headroom over the 10 MB client-side file limit.
@@ -143,15 +179,21 @@ async function handleApi(req, res, urlPath) {
         sendJson(res, 400, { error: 'filename and fileBase64 are required.' });
         return true;
       }
+      console.log(`[parse-resume] Received "${filename}" (${(fileBase64.length * 0.75 / 1024).toFixed(0)} KB decoded)`);
       const buffer = Buffer.from(fileBase64, 'base64');
       const resumeText = await extractResumeText(buffer, filename);
       if (!resumeText || !resumeText.trim()) {
         sendJson(res, 400, { error: 'Could not extract any text from this file. If it is a scanned/image-based PDF, try a text-based PDF or DOCX instead.' });
         return true;
       }
-      const profile = await extractProfileFromResumeText({ apiKey: settings.apiKey, model: settings.model, resumeText });
+      console.log(`[parse-resume] Extracted ${resumeText.length} chars of text, calling ${settings.provider} (model: ${settings.model})…`);
+      const profile = await extractProfileFromResumeText({
+        provider: settings.provider, apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model, resumeText,
+      });
+      console.log(`[parse-resume] Done in ${Date.now() - startedAt}ms`);
       sendJson(res, 200, { profile });
     } catch (e) {
+      console.log(`[parse-resume] Failed after ${Date.now() - startedAt}ms: ${e.message}`);
       sendJson(res, 502, { error: e.message || 'Resume parsing failed.' });
     }
     return true;
@@ -192,8 +234,8 @@ async function handleApi(req, res, urlPath) {
     try {
       const body = await readJsonBody(req);
       const settings = readSettings();
-      if (!settings.apiKey) {
-        sendJson(res, 400, { error: 'AI provider is not configured yet. Add an OpenRouter API key in Settings.' });
+      if (!isConfigured(settings)) {
+        sendJson(res, 400, { error: 'AI provider is not configured yet. Set one up in Settings.' });
         return true;
       }
       if (!body.careerProfile || typeof body.jobDescriptionText !== 'string' || !body.jobDescriptionText.trim()) {
@@ -202,7 +244,9 @@ async function handleApi(req, res, urlPath) {
       }
       const mode = ['conservative', 'balanced', 'strong'].includes(body.mode) ? body.mode : 'balanced';
       const result = await tailorWithAI({
+        provider: settings.provider,
         apiKey: settings.apiKey,
+        baseUrl: settings.baseUrl,
         model: settings.model,
         profile: body.careerProfile,
         jobDescriptionText: body.jobDescriptionText,

@@ -55,7 +55,9 @@ const ChangeReview = (() => {
         <div class="changes-nav">
           <span class="changes-count">${idx + 1} of ${total} &bull; ${acceptedCount} accepted</span>
           <button class="btn btn--ghost" id="btn-prev" type="button" ${idx === 0 ? 'disabled' : ''}>&lsaquo; Previous</button>
-          <button class="btn btn--ghost" id="btn-next" type="button" ${idx === total - 1 ? 'disabled' : ''}>Next &rsaquo;</button>
+          ${idx === total - 1
+            ? '<button class="btn btn--primary" id="btn-finish" type="button">Finish &check;</button>'
+            : '<button class="btn btn--ghost" id="btn-next" type="button">Next &rsaquo;</button>'}
         </div>
       </div>
 
@@ -102,8 +104,10 @@ const ChangeReview = (() => {
   function wireEvents(session, idx, change) {
     const prevBtn = document.getElementById('btn-prev');
     const nextBtn = document.getElementById('btn-next');
+    const finishBtn = document.getElementById('btn-finish');
     if (prevBtn) prevBtn.addEventListener('click', () => { AppState.set({ activeChangeIndex: Math.max(0, idx - 1) }); render(); refreshDependents(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { AppState.set({ activeChangeIndex: Math.min(session.changes.length - 1, idx + 1) }); render(); refreshDependents(); });
+    if (finishBtn) finishBtn.addEventListener('click', () => JobMatchPanel.runFinalValidation());
 
     document.getElementById('btn-accept').addEventListener('click', () => {
       change.status = change.editedText != null ? 'edited' : 'accepted';

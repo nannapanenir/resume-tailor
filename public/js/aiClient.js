@@ -10,16 +10,16 @@ const AIClient = (() => {
       const res = await fetch('/api/settings');
       statusCache = await res.json();
     } catch (e) {
-      statusCache = { configured: false, model: null };
+      statusCache = { configured: false, provider: 'openrouter', model: null, baseUrl: null };
     }
     return statusCache;
   }
 
-  async function saveSettings(apiKey, model) {
+  async function saveSettings({ provider, apiKey, model, baseUrl }) {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, model }),
+      body: JSON.stringify({ provider, apiKey, model, baseUrl }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to save settings.');
