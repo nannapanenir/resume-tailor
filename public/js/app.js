@@ -62,13 +62,24 @@ const CareerProfileView = (() => {
   function render() {
     const { careerProfile } = AppState.get();
     if (!careerProfile) {
-      container.innerHTML = `<div class="empty-state">No career profile yet. Use the "+" menu in New Tailoring to add a master resume, LinkedIn PDF, or paste your career information.</div>`;
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>No career profile yet.</p>
+          <button class="btn btn--primary btn--sm" id="cp-upload-resume">📄 Upload Master Resume</button>
+          <p class="muted" style="margin-top: 8px;">Or use the "+" menu in New Tailoring to add a LinkedIn PDF or paste your career information.</p>
+        </div>`;
+      document.getElementById('cp-upload-resume').addEventListener('click', () => UploadMenu.trigger('upload-master-resume'));
       return;
     }
     const p = careerProfile;
 
     container.innerHTML = `
       <div class="profile-scroll">
+        <div class="profile-toolbar">
+          <button class="btn btn--secondary btn--sm" id="cp-upload-resume">📄 Upload New Resume</button>
+          <span class="muted" style="font-size: 12px;">Replaces your current profile with a freshly extracted one.</span>
+        </div>
+
         <section class="profile-card">
           <div class="profile-card-header">
             <h3>Personal Information</h3>
@@ -158,6 +169,8 @@ const CareerProfileView = (() => {
   }
 
   function wireEvents(p) {
+    document.getElementById('cp-upload-resume').addEventListener('click', () => UploadMenu.trigger('upload-master-resume'));
+
     document.getElementById('edit-personal').addEventListener('click', () => {
       const info = p.personalInformation;
       Modal.open({
@@ -315,29 +328,54 @@ const PreviousResumesView = (() => {
 const SettingsView = (() => {
   const container = document.getElementById('view-settings');
 
-  function aiSectionHTML(status) {
-    if (status.configured) {
-      return `
-        <p class="ai-status ai-status--on">✅ Connected — using <strong>${status.model}</strong> for tailoring.</p>
-        <p class="field-hint">Your key is stored in <code>resume-tailor-data/settings.json</code> on this machine, used only by the local server, and never sent anywhere except OpenRouter at tailoring time.</p>
-        <button class="btn btn--reject btn--sm" id="ai-clear-btn" type="button">Disconnect &amp; forget key</button>
-      `;
-    }
-    return `
-      <p class="ai-status ai-status--off">Not connected — tailoring currently uses the built-in local matching engine.</p>
-      <label class="field-label" for="ai-key">OpenRouter API key</label>
-      <input class="field-input" type="password" id="ai-key" placeholder="sk-or-..." autocomplete="off" />
+  function aiSectionHTML(status, selectedProvider) {
+    const provider = selectedProvider || status.provider || 'openrouter';
+    const isLocal = provider === 'local';
+
+    const statusLine = status.configured
+      ? `<p class="ai-status ai-status--on">✅ Connected via <strong>${status.provider === 'local' ? 'local server' : 'OpenRouter'}</strong> — using <strong>${status.model}</strong>${status.provider === 'local' && status.baseUrl ? ` at <code>${status.baseUrl}</code>` : ''}.</p>`
+      : `<p class="ai-status ai-status--off">Not connected — tailoring currently uses the built-in local matching engine.</p>`;
+
+    const providerToggle = `
+      <div class="provider-toggle">
+        <label><input type="radio" name="ai-provider" value="openrouter" ${!isLocal ? 'checked' : ''}/> OpenRouter (cloud)</label>
+        <label><input type="radio" name="ai-provider" value="local" ${isLocal ? 'checked' : ''}/> Local server (Docker/Podman, Ollama, LM Studio...)</label>
+      </div>`;
+
+    const fields = isLocal ? `
+      <label class="field-label" for="ai-base-url">Local server URL</label>
+      <input class="field-input" type="text" id="ai-base-url" placeholder="http://localhost:11434/v1"
+        value="${status.provider === 'local' ? status.baseUrl || '' : ''}" autocomplete="off" />
       <label class="field-label" for="ai-model">Model name</label>
-      <input class="field-input" type="text" id="ai-model" placeholder="e.g. openai/gpt-4o-mini" autocomplete="off" />
+      <input class="field-input" type="text" id="ai-model" placeholder="e.g. llama3.2:3b"
+        value="${status.provider === 'local' ? status.model || '' : ''}" autocomplete="off" />
+      <p class="field-hint">Points at any OpenAI-compatible local server (Ollama, LM Studio, llama.cpp, vLLM...) reachable at this URL — e.g. an Ollama container publishing port 11434. Nothing ever leaves your machine and no key is needed.</p>
+    ` : `
+      <label class="field-label" for="ai-key">OpenRouter API key</label>
+      <input class="field-input" type="password" id="ai-key"
+        placeholder="${status.configured && status.provider === 'openrouter' ? 'Leave blank to keep your current key' : 'sk-or-...'}" autocomplete="off" />
+      <label class="field-label" for="ai-model">Model name</label>
+      <input class="field-input" type="text" id="ai-model" placeholder="e.g. openai/gpt-4o-mini"
+        value="${status.provider === 'openrouter' ? status.model || '' : ''}" autocomplete="off" />
       <p class="field-hint">Sent once to this app's local server and written to a local file — never through chat, never into generated resumes or logs. When you tailor a job description, its text and your career profile are sent to OpenRouter to generate suggestions; you'll see a notice each time that happens.</p>
-      <button class="btn btn--primary btn--sm" id="ai-save-btn" type="button">Connect</button>
+    `;
+
+    return `
+      ${statusLine}
+      ${providerToggle}
+      ${fields}
+      <div class="settings-actions-row">
+        <button class="btn btn--primary btn--sm" id="ai-save-btn" type="button">${status.configured ? 'Update' : 'Connect'}</button>
+        ${status.configured ? '<button class="btn btn--reject btn--sm" id="ai-clear-btn" type="button">Disconnect</button>' : ''}
+      </div>
     `;
   }
 
   async function render() {
-    const { tailoringMode } = AppState.get();
+    const { tailoringMode, hasProfile } = AppState.get();
     container.innerHTML = `
       <div class="profile-scroll">
+        ${hasProfile ? '' : '<button class="btn btn--ghost btn--sm settings-back-btn" id="settings-back-btn" type="button">← Back to resume setup</button>'}
         <section class="profile-card">
           <h3>Tailoring Mode</h3>
           <p class="muted">Applies to the next job description you paste or upload. All modes remain truthful — only verified facts are ever used.</p>
@@ -349,11 +387,14 @@ const SettingsView = (() => {
         </section>
 
         <section class="profile-card">
-          <h3>AI Provider (OpenRouter)</h3>
+          <h3>AI Provider</h3>
           <div id="ai-section">Checking connection…</div>
         </section>
       </div>
     `;
+    const backButton = container.querySelector('#settings-back-btn');
+    if (backButton) backButton.addEventListener('click', App.showWelcome);
+
     container.querySelectorAll('input[name="mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         AppState.set({ tailoringMode: input.value });
@@ -364,74 +405,99 @@ const SettingsView = (() => {
     const status = await AIClient.getStatus(true);
     const aiSection = document.getElementById('ai-section');
     if (!aiSection) return; // user navigated away before this resolved
-    aiSection.innerHTML = aiSectionHTML(status);
 
-    const saveBtn = document.getElementById('ai-save-btn');
-    if (saveBtn) {
+    function wireAiSection(selectedProvider) {
+      aiSection.innerHTML = aiSectionHTML(status, selectedProvider);
+
+      aiSection.querySelectorAll('input[name="ai-provider"]').forEach((radio) => {
+        radio.addEventListener('change', () => wireAiSection(radio.value));
+      });
+
+      const saveBtn = document.getElementById('ai-save-btn');
       saveBtn.addEventListener('click', async () => {
-        const apiKey = document.getElementById('ai-key').value.trim();
+        const provider = aiSection.querySelector('input[name="ai-provider"]:checked').value;
         const model = document.getElementById('ai-model').value.trim();
-        if (!apiKey || !model) {
-          Toast.show('Enter both an API key and a model name.', 'error');
+        const isLocal = provider === 'local';
+        const apiKey = isLocal ? '' : document.getElementById('ai-key').value.trim();
+        const baseUrl = isLocal ? document.getElementById('ai-base-url').value.trim() : '';
+
+        if (!model) {
+          Toast.show('Enter a model name.', 'error');
           return;
         }
+        if (isLocal && !baseUrl) {
+          Toast.show('Enter the local server URL.', 'error');
+          return;
+        }
+        if (!isLocal && !apiKey && !(status.configured && status.provider === 'openrouter')) {
+          Toast.show('Enter an API key.', 'error');
+          return;
+        }
+
+        const originalLabel = saveBtn.textContent;
         saveBtn.disabled = true;
-        saveBtn.textContent = 'Connecting…';
+        saveBtn.textContent = status.configured ? 'Updating…' : 'Connecting…';
         try {
-          await AIClient.saveSettings(apiKey, model);
-          Toast.show('Connected to OpenRouter.', 'success');
+          await AIClient.saveSettings({ provider, apiKey, model, baseUrl });
+          Toast.show(status.configured ? 'Settings updated.' : 'Connected.', 'success');
           render();
         } catch (e) {
           Toast.show(e.message, 'error');
           saveBtn.disabled = false;
-          saveBtn.textContent = 'Connect';
+          saveBtn.textContent = originalLabel;
         }
       });
+
+      const clearBtn = document.getElementById('ai-clear-btn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', async () => {
+          await AIClient.clearSettings();
+          Toast.show('Disconnected. Your key has been deleted from disk.', 'info');
+          render();
+        });
+      }
     }
 
-    const clearBtn = document.getElementById('ai-clear-btn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', async () => {
-        await AIClient.clearSettings();
-        Toast.show('Disconnected. Your key has been deleted from disk.', 'info');
-        render();
-      });
-    }
+    wireAiSection(status.provider);
   }
   return { render };
 })();
 
-// ---------------------------------------------------------------- Welcome-screen status
-// Long-running work (resume upload -> extraction -> AI call) happens while
-// the app-shell/chat log is still hidden behind the welcome screen, so it
-// needs its own visible, non-auto-hiding status indicator here.
+// ---------------------------------------------------------------- Global status banner
+// Long-running work (resume upload -> extraction -> AI call) can now be
+// triggered from more than one screen (welcome screen, Career Profile tab,
+// "+" menu while chatting) — this banner is a fixed-position element
+// outside both #welcome-screen and #app-shell so it's visible no matter
+// which one is showing or which sidebar tab is active.
 
-const WelcomeStatus = (() => {
-  const el = document.getElementById('welcome-status');
-  const textEl = document.getElementById('welcome-status-text');
-  const buttonIds = ['welcome-add-resume', 'welcome-add-linkedin', 'welcome-paste-career'];
-
-  function setButtonsDisabled(disabled) {
-    buttonIds.forEach((id) => { document.getElementById(id).disabled = disabled; });
-  }
+const GlobalStatus = (() => {
+  const el = document.getElementById('global-status');
+  const textEl = document.getElementById('global-status-text');
+  const actionBtn = document.getElementById('global-status-action');
 
   function show(message) {
     el.hidden = false;
-    el.className = 'welcome-status';
+    el.className = 'global-status';
     textEl.textContent = message;
-    setButtonsDisabled(true);
+    actionBtn.hidden = true;
   }
 
-  function showError(message) {
+  function showError(message, action) {
     el.hidden = false;
-    el.className = 'welcome-status welcome-status--error';
+    el.className = 'global-status global-status--error';
     textEl.textContent = message;
-    setButtonsDisabled(false);
+    if (action) {
+      actionBtn.hidden = false;
+      actionBtn.textContent = action.label;
+      actionBtn.onclick = action.onClick;
+    } else {
+      actionBtn.hidden = true;
+    }
   }
 
   function hide() {
     el.hidden = true;
-    setButtonsDisabled(false);
+    actionBtn.hidden = true;
   }
 
   return { show, showError, hide };
@@ -449,8 +515,23 @@ const App = (() => {
   }
 
   function showWelcome() {
+    // Reset the workspace back to its default tab so that finishing
+    // onboarding later (e.g. after using the Settings "back" button) opens
+    // New Tailoring instead of wherever the user last navigated to (e.g.
+    // Settings) before returning here.
+    AppState.set({ activeView: 'new-tailoring' });
+    Sidebar.render('new-tailoring');
     document.getElementById('welcome-screen').hidden = false;
     document.getElementById('app-shell').hidden = true;
+  }
+
+  // Lets a first-time user (no career profile yet) reach Settings to
+  // configure their OpenRouter key — Settings doesn't depend on a profile
+  // existing, so it's safe to enter the workspace without one.
+  function showSettings() {
+    showWorkspace();
+    AppState.set({ activeView: 'settings' });
+    Sidebar.render('settings');
   }
 
   function init() {
@@ -462,6 +543,7 @@ const App = (() => {
     document.getElementById('welcome-add-resume').addEventListener('click', () => UploadMenu.trigger('upload-master-resume'));
     document.getElementById('welcome-add-linkedin').addEventListener('click', () => UploadMenu.trigger('upload-linkedin-pdf'));
     document.getElementById('welcome-paste-career').addEventListener('click', () => UploadMenu.trigger('add-career-info'));
+    document.getElementById('welcome-open-settings').addEventListener('click', showSettings);
 
     if (AppState.get().hasProfile) {
       showWorkspace();
@@ -470,7 +552,7 @@ const App = (() => {
     }
   }
 
-  return { init, showWorkspace, showWelcome };
+  return { init, showWorkspace, showWelcome, showSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);

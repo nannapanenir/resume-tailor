@@ -8,6 +8,15 @@
 </head>
 <body>
 
+<!-- Global status banner: visible above ANY screen/tab, for long-running
+     actions (resume upload/extraction) that can be triggered from more
+     than one place (welcome screen, Career Profile tab, etc). -->
+<div id="global-status" class="global-status" hidden>
+  <span id="global-status-spinner" class="spinner" aria-hidden="true"></span>
+  <span id="global-status-text"></span>
+  <button id="global-status-action" class="link-btn global-status-action" type="button" hidden></button>
+</div>
+
 <!-- ============ WELCOME / FIRST-LAUNCH SCREEN ============ -->
 <div id="welcome-screen" class="welcome-screen" hidden>
   <div class="welcome-card">
@@ -18,6 +27,13 @@
     <p>Build your verified career profile to get started.</p>
 
     <div class="welcome-actions">
+      <button class="welcome-btn" id="welcome-open-settings" type="button">
+        <span class="welcome-btn-icon" aria-hidden="true">⚙️</span>
+        <span>
+          <strong>AI Settings</strong>
+          <small>Add or update your OpenRouter API key and model, or connect a local model</small>
+        </span>
+      </button>
       <button class="welcome-btn welcome-btn--primary" id="welcome-add-resume" type="button">
         <span class="welcome-btn-icon" aria-hidden="true">📄</span>
         <span>
@@ -39,11 +55,6 @@
           <small>Type or paste your background as plain text</small>
         </span>
       </button>
-    </div>
-
-    <div id="welcome-status" class="welcome-status" hidden>
-      <span id="welcome-status-spinner" class="spinner" aria-hidden="true"></span>
-      <span id="welcome-status-text"></span>
     </div>
 
     <p class="welcome-privacy">🔒 All data stays on your device.</p>

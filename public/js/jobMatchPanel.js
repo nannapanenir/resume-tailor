@@ -181,5 +181,5 @@ const JobMatchPanel = (() => {
     }
   }
 
-  return { render };
+  return { render, runFinalValidation };
 })();
