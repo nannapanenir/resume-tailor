@@ -2,7 +2,8 @@
 // the AI provider, then validates the response so the truthfulness rules
 // are enforced in code, not just by asking the model nicely.
 
-const { callOpenRouter } = require('./aiProvider');
+const { callChatCompletionWithRetry } = require('./aiProvider');
+const { extractJsonObject } = require('./extractJsonObject');
 
 const SYSTEM_PROMPT = `You are a resume-tailoring engine. You are given a candidate's VERIFIED career profile as JSON and a job description. Produce truthful, evidence-based resume tailoring suggestions.
 
@@ -49,10 +50,6 @@ function collectBulletIndex(profile) {
   return index;
 }
 
-function stripCodeFence(text) {
-  return text.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim();
-}
-
 // This is the enforcement layer: the model is asked nicely to follow the
 // truthfulness rules, but every change is re-checked here against the
 // actual profile before it's allowed through. A change whose "original"
@@ -61,9 +58,11 @@ function stripCodeFence(text) {
 function validateAndSanitize(raw, profile) {
   let parsed;
   try {
-    parsed = JSON.parse(stripCodeFence(raw));
+    parsed = extractJsonObject(raw);
   } catch (e) {
-    throw new Error('The AI response was not valid JSON.');
+    console.error('[tailorEngine] Failed to parse AI response:', e.message);
+    console.error('[tailorEngine] Full raw response:\n', raw);
+    throw new Error('The AI response was not valid JSON. Check the server console for the full raw response.');
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('The AI response was not a JSON object.');
@@ -121,9 +120,11 @@ function validateAndSanitize(raw, profile) {
   };
 }
 
-async function tailorWithAI({ apiKey, model, profile, jobDescriptionText, mode }) {
-  const content = await callOpenRouter({
+async function tailorWithAI({ provider, apiKey, baseUrl, model, profile, jobDescriptionText, mode }) {
+  const content = await callChatCompletionWithRetry({
+    provider,
     apiKey,
+    baseUrl,
     model,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },

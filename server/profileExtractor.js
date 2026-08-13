@@ -4,7 +4,8 @@
 // Truthfulness here relies on the source text itself, since there is no
 // prior verified profile to check claims against yet.
 
-const { callOpenRouter } = require('./aiProvider');
+const { callChatCompletionWithRetry } = require('./aiProvider');
+const { extractJsonObject } = require('./extractJsonObject');
 
 const SYSTEM_PROMPT = `You are a resume-parsing engine. You are given the raw extracted text of a candidate's resume. Extract ONLY information that is explicitly present in the text into a structured JSON career profile.
 
@@ -28,10 +29,6 @@ function buildUserPrompt(resumeText) {
   return `RESUME TEXT (raw extracted, may contain formatting artifacts):\n${resumeText}\n\nRespond with only the JSON object described in the system prompt.`;
 }
 
-function stripCodeFence(text) {
-  return text.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim();
-}
-
 function str(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -39,9 +36,11 @@ function str(value) {
 function sanitizeProfile(raw) {
   let parsed;
   try {
-    parsed = JSON.parse(stripCodeFence(raw));
+    parsed = extractJsonObject(raw);
   } catch (e) {
-    throw new Error('The AI response was not valid JSON.');
+    console.error('[profileExtractor] Failed to parse AI response:', e.message);
+    console.error('[profileExtractor] Full raw response:\n', raw);
+    throw new Error('The AI response was not valid JSON. Check the server console for the full raw response.');
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('The AI response was not a JSON object.');
@@ -91,9 +90,11 @@ function sanitizeProfile(raw) {
   };
 }
 
-async function extractProfileFromResumeText({ apiKey, model, resumeText }) {
-  const content = await callOpenRouter({
+async function extractProfileFromResumeText({ provider, apiKey, baseUrl, model, resumeText }) {
+  const content = await callChatCompletionWithRetry({
+    provider,
     apiKey,
+    baseUrl,
     model,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
